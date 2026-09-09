@@ -19,7 +19,7 @@ O workflow é implementado em **n8n** e utiliza o **Supabase** como camada de pe
 * Disponibilizar um endpoint de health check.
 * Permitir o rastreamento de operações por `eventId` e/ou `orderId`.
 
-> \*\*Status atual:\*\* o endpoint `GET /v1/logs` está conectado a um retorno de teste (`mock up do GET`) no workflow atual. A consulta SQL e a paginação já estão montadas, mas ainda não estão ligadas ao node que executa a consulta no banco.
+> **Status atual:** o endpoint `GET /v1/logs` está conectado a um retorno de teste (`mock up do GET`) no workflow atual. A consulta SQL e a paginação já estão montadas, mas ainda não estão ligadas ao node que executa a consulta no banco.
 
 ---
 
@@ -66,12 +66,16 @@ Também deve ser utilizado:
 ```http
 Content-Type: application/json
 ```
+
+Para o registro de logs, o identificador do pedido pode ser enviado opcionalmente pelo header:
+
 ```http
 x-pedido-id: <id do pedido enviado pelo API Gateway>
 ```
+
 ### Chave ausente
 
-Quando o header `x-api-key` ou `x-pedido-id` não é enviado:
+Quando o header `x-api-key` não é enviado:
 
 ```http
 HTTP 401 Unauthorized
@@ -104,22 +108,30 @@ HTTP 403 Forbidden
 |Método|Endpoint|Autenticação|Descrição|
 |-|-|-|-|
 |GET|`/log/v1/health`|Não|Verifica a disponibilidade da API e da conexão com o banco|
-|POST|`/v1/logs`|Sim|Registra um novo log|
+|POST|`/v1/log`|Sim|Registra um novo log|
 |GET|`/v1/logs`|Sim|Consulta logs|
-|POST|`/v1/metrics`|Sim|Registra uma nova métrica|
+|POST|`/v1/metric`|Sim|Registra uma nova métrica|
+|GET|`/v1/metrics`|Sim|Consulta métricas|
+|GET|`/v1/chaos-status`|Sim|Consulta o estado do Chaos Monkey|
+|POST|`/v1/alter-chaos`|Sim|Habilita ou desabilita o Logger|
 
 ---
 
-# 5\. POST /v1/logs
+# 5\. POST /v1/log
 
 Registra um evento de log no Logger API.
 
 ## Requisição
 
 ```http
-POST /v1/logs
+POST /v1/log
 Content-Type: application/json
 x-api-key: turma2026
+```
+
+O header `x-pedido-id` é opcional:
+
+```http
 x-pedido-id: <id do pedido enviado pelo API Gateway>
 ```
 
@@ -134,7 +146,6 @@ x-pedido-id: <id do pedido enviado pelo API Gateway>
   "status": "FAILED",
   "level": "ERROR",
   "message": "Pagamento recusado",
-  "orderId": "PED-10293",
   "metadata": {
     "paymentMethod": "PIX",
     "attempt": 2,
@@ -142,6 +153,8 @@ x-pedido-id: <id do pedido enviado pelo API Gateway>
   }
 }
 ```
+
+O campo `orderId` não é enviado no body. Quando o header `x-pedido-id` é informado, seu valor é utilizado como `orderId`. Caso o header não seja informado, `orderId` será `null`.
 
 ## Campos
 
@@ -153,7 +166,7 @@ x-pedido-id: <id do pedido enviado pelo API Gateway>
 |`status`|Sim|string|Resultado da operação|
 |`level`|Sim|string|Severidade do log|
 |`message`|Sim|string|Descrição do evento|
-|`orderId`|Não|string/null|Identificador do pedido|
+|`orderId`|Não|string/null|Identificador do pedido, obtido pelo header `x-pedido-id`|
 |`metadata`|Não|object|Informações adicionais específicas do serviço|
 
 ### Valores recomendados
@@ -236,7 +249,7 @@ Não devem ser criados campos obrigatórios específicos dentro de `metadata`.
 
 # 6\. Validação do payload
 
-O workflow valida os seguintes campos como obrigatórios para `POST /v1/logs`:
+O workflow valida os seguintes campos como obrigatórios para `POST /v1/log`:
 
 ```text
 service
@@ -284,7 +297,7 @@ A estrutura persistida é:
 
 Caso `timestamp` não seja informado, o workflow utiliza automaticamente a data/hora atual.
 
-Caso `orderId` não seja informado:
+Caso o header `x-pedido-id` não seja informado:
 
 ```json
 "orderId": null
@@ -321,7 +334,7 @@ Mapeamento utilizado pelo workflow:
 
 \---
 
-# 9\. Resposta do POST /v1/logs
+# 9\. Resposta do POST /v1/log
 
 O workflow atual possui um node de retorno após a criação do registro.
 
@@ -436,7 +449,7 @@ COUNT(\*) OVER()
 }
 ```
 
-> \*\*Status atual:\*\* embora o workflow prepare a consulta SQL com filtros e paginação, o fluxo atual direciona esse resultado para o node `mock up do GET`. Portanto, a resposta acima representa o contrato planejado; o endpoint ainda precisa ser conectado ao node de execução SQL/Supabase para operar de forma completa.
+> **Status atual:** embora o workflow prepare a consulta SQL com filtros e paginação, o fluxo atual direciona esse resultado para o node `mock up do GET`. Portanto, a resposta acima representa o contrato planejado; o endpoint ainda precisa ser conectado ao node de execução SQL/Supabase para operar de forma completa.
 
 \---
 
@@ -492,12 +505,12 @@ HTTP 500 Internal Server Error
 
 \---
 
-# 14\. POST /v1/metrics
+# 14\. POST /v1/metric
 
 Além dos logs, o workflow possui um endpoint específico para registro de métricas.
 
 ```http
-POST /v1/metrics
+POST /v1/metric
 Content-Type: application/json
 x-api-key: turma2026
 ```
@@ -566,31 +579,135 @@ metrics
 
 \---
 
-# 16\. Tratamento de erros
+# 15.1 GET /v1/metrics
+
+Consulta as métricas armazenadas.
+
+```http
+GET /v1/metrics
+x-api-key: turma2026
+```
+
+## Filtros disponíveis
+
+|Parâmetro|Descrição|
+|-|-|
+|`metricId`|Identificador da métrica|
+|`metricName`|Nome da métrica|
+|`service`|Serviço responsável|
+|`orderId`|Identificador do pedido|
+|`page`|Número da página|
+|`limit`|Quantidade de registros por página|
+
+### Exemplo
+
+```http
+GET /v1/metrics?service=pagamento&metricName=payment_processing_time&page=1&limit=20
+```
+
+---
+
+# 15.2 Fluxo de consulta de métricas
+
+A consulta utiliza a função `buscar_metrics` no Supabase, aplicando os filtros informados e os parâmetros de paginação.
+
+Os valores padrão são:
+
+```text
+page = 1
+limit = 20
+```
+
+---
+
+# 16\. Chaos Monkey
+
+O Logger possui endpoints para simular a indisponibilidade do serviço.
+
+A funcionalidade permite testar o comportamento dos demais microsserviços quando o Logger estiver indisponível.
+
+## GET /v1/chaos-status
+
+Consulta o estado atual do Logger.
+
+```http
+GET /v1/chaos-status
+x-api-key: turma2026
+```
+
+A resposta informa se o serviço está habilitado ou desabilitado.
+
+## POST /v1/alter-chaos
+
+Altera o estado de disponibilidade do Logger.
+
+```http
+POST /v1/alter-chaos
+Content-Type: application/json
+x-api-key: turma2026
+```
+
+### Desabilitar o Logger
+
+```json
+{
+  "enabled": false
+}
+```
+
+### Habilitar o Logger
+
+```json
+{
+  "enabled": true
+}
+```
+
+Quando `enabled` for `false`, os endpoints normais do Logger ficam indisponíveis e retornam `503 Service Unavailable`.
+
+Os endpoints de Chaos continuam disponíveis para permitir a consulta e a reativação do serviço.
+
+O estado do serviço é armazenado na tabela:
+
+```text
+service_status
+```
+
+com o registro:
+
+```text
+service = logger
+```
+
+---
+
+# 17\. Tratamento de erros
 
 |HTTP|Situação|
 |-:|-|
 |`200`|Consulta ou health check realizado com sucesso|
 |`201`|Log/métrica criado com sucesso|
 |`400`|Payload inválido|
-|`401`|`x-api-key` ausente ou `x-pedido-id` ausente na regra atual do POST de logs|
+|`401`|`x-api-key` ausente|
 |`403`|`x-api-key` inválida|
 |`404`|Recurso não encontrado|
 |`429`|Rate limit atingido|
 |`500`|Erro interno ou indisponibilidade do banco|
+|`503`|Logger desabilitado pelo Chaos Monkey|
 
 > Os códigos `404` e `429` fazem parte do contrato de documentação, mas não possuem tratamento explícito identificado no workflow atual.
 
 \---
 
-# 17\. Exemplos de uso
+# 18\. Exemplos de uso
 
 ## Registrar um log
 
 ```bash
-curl -X POST "https://SEU\_HOST/v1/logs" \\
+curl -X POST "https://SEU\_HOST/v1/log" \\
   -H "Content-Type: application/json" \\
   -H "x-api-key: turma2026" \\
+  -H "x-pedido-id: PED-10293" \\
   -d '{
     "eventId": "7f3a91c2-1234-4567-8901-abcdef123456",
     "service": "pagamento",
@@ -598,7 +715,6 @@ curl -X POST "https://SEU\_HOST/v1/logs" \\
     "status": "SUCCESS",
     "level": "INFO",
     "message": "Pagamento processado com sucesso",
-    "orderId": "PED-10293",
     "metadata": {
       "paymentMethod": "PIX",
       "amount": 59.90
@@ -626,14 +742,65 @@ curl -X GET "https://SEU\_HOST/v1/logs?service=pagamento\&level=ERROR" \\
 curl -X GET "https://SEU\_HOST/log/v1/health"
 ```
 
+## Registrar uma métrica
+
+```bash
+curl -X POST "https://SEU\_HOST/v1/metric" \\
+  -H "Content-Type: application/json" \\
+  -H "x-api-key: turma2026" \\
+  -d '{
+    "metricName": "payment\_processing\_time",
+    "value": 2.43,
+    "unit": "seconds",
+    "service": "pagamento",
+    "orderId": "PED-10293"
+  }'
+```
+
+## Consultar métricas
+
+```bash
+curl -X GET "https://SEU\_HOST/v1/metrics?service=pagamento&page=1\&limit=20" \\
+  -H "x-api-key: turma2026"
+```
+
+## Consultar status do Chaos Monkey
+
+```bash
+curl -X GET "https://SEU\_HOST/v1/chaos-status" \\
+  -H "x-api-key: turma2026"
+```
+
+## Desabilitar o Logger
+
+```bash
+curl -X POST "https://SEU\_HOST/v1/alter-chaos" \\
+  -H "Content-Type: application/json" \\
+  -H "x-api-key: turma2026" \\
+  -d '{
+    "enabled": false
+  }'
+```
+
+## Habilitar o Logger
+
+```bash
+curl -X POST "https://SEU\_HOST/v1/alter-chaos" \\
+  -H "Content-Type: application/json" \\
+  -H "x-api-key: turma2026" \\
+  -d '{
+    "enabled": true
+  }'
+```
+
 \---
 
-# 18\. Fluxo de processamento
+# 19\. Fluxo de processamento
 
 ## Logs
 
 ```text
-POST /v1/logs
+POST /v1/log
        |
        v
 Verificar x-api-key
@@ -641,11 +808,6 @@ Verificar x-api-key
        +---- ausente ----> 401
        |
        +---- inválida ---> 403
-       |
-       v
-Validar x-pedido-id
-       |
-       +---- ausente ----> 401
        |
        v
 Validar payload
@@ -665,7 +827,7 @@ Retorno
 ## Métricas
 
 ```text
-POST /v1/metrics
+POST /v1/metric
        |
        v
 Verificar x-api-key
@@ -680,7 +842,7 @@ Validar payload
        +---- inválido ---> 400
        |
        v
-Gerar metric\_id
+Gerar metric_id
        |
        v
 Normalizar métrica
@@ -692,9 +854,25 @@ Supabase - tabela metrics
 Retorno
 ```
 
+## Chaos Monkey
+
+```text
+POST /v1/alter-chaos
+       |
+       v
+Verificar x-api-key
+       |
+       v
+Atualizar service_status
+       |
+       +---- enabled = true
+       |
+       +---- enabled = false
+```
+
 \---
 
-# 19\. Regras e recomendações
+# 20\. Regras e recomendações
 
 1. Todas as rotas protegidas devem receber `x-api-key`.
 2. Requisições com corpo JSON devem utilizar `Content-Type: application/json`.
@@ -709,11 +887,11 @@ Retorno
 
 \---
 
-# 20\. Pontos de atenção antes da publicação
+# 21\. Pontos de atenção antes da publicação
 
 O workflow e o modelo de documentação apresentam algumas diferenças que devem ser corrigidas/alinhadas:
 
-### 20.1 Health check
+### 21.1 Health check
 
 **Workflow:**
 
@@ -729,46 +907,38 @@ O workflow e o modelo de documentação apresentam algumas diferenças que devem
 
 Escolher um único padrão.
 
-### 20.2 `eventId`
+### 21.2 `eventId`
 
 O modelo define `eventId` como obrigatório, porém o node `validar payload` do workflow não o valida como obrigatório.
 
 Além disso, o workflow atual não gera automaticamente `eventId`.
 
-### 20.3 `x-pedido-id`
-
-O workflow possui uma etapa que exige o header:
-
-```http
-x-pedido-id
-```
-
-no fluxo de `POST /v1/logs`.
-
-Esse header não aparece no contrato principal do modelo e não é utilizado no node de normalização. É necessário decidir se ele faz parte oficialmente do contrato.
-
-### 20.4 GET ainda em mock
+### 21.3 GET ainda em mock
 
 O SQL de consulta já está preparado com filtros, `LIMIT`, `OFFSET` e `COUNT(\*) OVER()`, mas o resultado ainda é direcionado para um node de mock.
 
-### 20.5 Retorno do POST
+### 21.4 Retorno do POST
 
 O workflow possui um node de retorno, mas o código HTTP `201 Created` e o corpo de resposta documentados ainda precisam ser configurados explicitamente.
 
-### 20.6 Métricas
+### 21.5 Métricas
 
-O workflow possui `POST /v1/metrics`, mas esse endpoint não está descrito no modelo original de documentação. Ele deve ser incluído na documentação oficial caso faça parte do contrato da API.
+O workflow possui `POST /v1/metric` e `GET /v1/metrics`, com registro e consulta de métricas. A consulta utiliza a função `buscar_metrics` no Supabase.
+
+### 21.6 Chaos Monkey
+
+O workflow possui `GET /v1/chaos-status` e `POST /v1/alter-chaos` para consultar e alterar o estado de disponibilidade do Logger.
 
 \---
 
-# 21\. Resumo do contrato
+# 22\. Resumo do contrato
 
 ### Logs
 
 **Endpoint**
 
 ```text
-POST /v1/logs
+POST /v1/log
 ```
 
 **Obrigatórios no workflow**
@@ -796,9 +966,11 @@ message
 
 ```text
 timestamp
-orderId
+x-pedido-id
 metadata
 ```
+
+O `x-pedido-id`, quando enviado no header, é utilizado para preencher `orderId`. O `orderId` não é enviado no body.
 
 ### Consulta
 
@@ -827,10 +999,16 @@ limit
 
 ### Métricas
 
-**Endpoint**
+**Registro**
 
 ```text
-POST /v1/metrics
+POST /v1/metric
+```
+
+**Consulta**
+
+```text
+GET /v1/metrics
 ```
 
 **Obrigatórios**
@@ -852,7 +1030,7 @@ metadata
 
 ### Health
 
-**Endpoint atual**
+**Endpoint**
 
 ```text
 GET /log/v1/health
@@ -864,14 +1042,41 @@ GET /log/v1/health
 UP / DOWN
 ```
 
+### Chaos Monkey
+
+**Consultar estado**
+
+```text
+GET /v1/chaos-status
+```
+
+**Alterar estado**
+
+```text
+POST /v1/alter-chaos
+```
+
+**Body**
+
+```json
+{
+  "enabled": true
+}
+```
+
+ou
+
+```json
+{
+  "enabled": false
+}
+```
+
 \---
 
-## 22\. Tecnologias
+## 23\. Tecnologias
 
 * **n8n** — orquestração do workflow e exposição dos webhooks.
 * **Supabase** — persistência dos logs e métricas.
 * **PostgreSQL/SQL** — consulta e paginação dos registros.
 * **HTTP/JSON** — comunicação entre os microsserviços e o Logger.
-
-
-
