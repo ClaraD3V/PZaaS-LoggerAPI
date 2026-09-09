@@ -19,8 +19,6 @@ O workflow é implementado em **n8n** e utiliza o **Supabase** como camada de pe
 * Disponibilizar um endpoint de health check.
 * Permitir o rastreamento de operações por `eventId` e/ou `orderId`.
 
-> **Status atual:** o endpoint `GET /v1/logs` está conectado a um retorno de teste (`mock up do GET`) no workflow atual. A consulta SQL e a paginação já estão montadas, mas ainda não estão ligadas ao node que executa a consulta no banco.
-
 ---
 
 ## 2\. Arquitetura
@@ -448,10 +446,7 @@ COUNT(\*) OVER()
   "total": 157
 }
 ```
-
-> **Status atual:** embora o workflow prepare a consulta SQL com filtros e paginação, o fluxo atual direciona esse resultado para o node `mock up do GET`. Portanto, a resposta acima representa o contrato planejado; o endpoint ainda precisa ser conectado ao node de execução SQL/Supabase para operar de forma completa.
-
-\---
+---
 
 # 12\. Ordenação
 
