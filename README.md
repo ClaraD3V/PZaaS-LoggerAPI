@@ -285,7 +285,6 @@ A estrutura persistida é:
   "status": "FAILED",
   "level": "ERROR",
   "message": "Pagamento recusado",
-  "orderId": "PED-10293",
   "metadata": "{\\"paymentMethod\\":\\"PIX\\",\\"attempt\\":2}"
 }
 ```
@@ -322,7 +321,6 @@ Mapeamento utilizado pelo workflow:
 |`status`|`status`|
 |`level`|`level`|
 |`message`|`message`|
-|`orderId`|`order\_id`|
 |`metadata`|`metadata`|
 
 \---
@@ -369,7 +367,7 @@ GET /v1/logs?id=7f3a91c2-1234-4567-8901-abcdef123456
 ### Por pedido
 
 ```http
-GET /v1/logs?orderId=PED-10293
+GET /v1/logs?=PED-10293
 ```
 
 ### Por serviço
@@ -519,7 +517,6 @@ service
 
 ```text
 unit
-orderId
 metadata
 ```
 
@@ -531,7 +528,6 @@ metadata
   "value": 2.43,
   "unit": "seconds",
   "service": "pagamento",
-  "orderId": "PED-10293",
   "metadata": {
     "paymentMethod": "PIX"
   }
@@ -553,7 +549,6 @@ A estrutura normalizada é:
   "value": 2.43,
   "unit": "seconds",
   "service": "pagamento",
-  "orderId": "PED-10293",
   "metadata": "{\\"paymentMethod\\":\\"PIX\\"}"
 }
 ```
@@ -740,7 +735,6 @@ curl -X POST "https://SEU\_HOST/v1/metric" \\
     "value": 2.43,
     "unit": "seconds",
     "service": "pagamento",
-    "orderId": "PED-10293"
   }'
 ```
 
@@ -964,7 +958,6 @@ service
 
 ```text
 unit
-orderId
 
 metadata
 ```
