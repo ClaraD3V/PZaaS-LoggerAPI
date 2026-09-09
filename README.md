@@ -138,7 +138,6 @@ x-pedido-id: <id do pedido enviado pelo API Gateway>
 ```json
 {
   "eventId": "7f3a91c2-1234-4567-8901-abcdef123456",
-  "timestamp": "2026-09-02T20:50:31Z",
   "service": "pagamento",
   "action": "PROCESS\_PAYMENT",
   "status": "FAILED",
@@ -158,7 +157,6 @@ O campo `orderId` não é enviado no body. Quando o header `x-pedido-id` é info
 
 |Campo|Obrigatório no contrato|Tipo|Descrição|
 |-|-:|-|-|
-|`timestamp`|Não|datetime|Data e hora do evento|
 |`service`|Sim|number|Serviço que gerou o log|
 |`action`|Sim|string|Operação realizada|
 |`status`|Sim|string|Resultado da operação|
@@ -282,7 +280,6 @@ A estrutura persistida é:
 
 ```json
 {
-  "timestamp": "2026-09-02T20:50:31Z",
   "service": "pagamento",
   "action": "PROCESS\_PAYMENT",
   "status": "FAILED",
@@ -293,7 +290,6 @@ A estrutura persistida é:
 }
 ```
 
-Caso `timestamp` não seja informado, o workflow utiliza automaticamente a data/hora atual.
 
 Caso o header `x-pedido-id` não seja informado:
 
@@ -321,7 +317,6 @@ Mapeamento utilizado pelo workflow:
 
 |Payload|Supabase|
 |-|-|
-|`timestamp`|`timestamp`|
 |`service`|`service`|
 |`action`|`action`|
 |`status`|`status`|
@@ -525,7 +520,6 @@ service
 ```text
 unit
 orderId
-timestamp
 metadata
 ```
 
@@ -538,7 +532,6 @@ metadata
   "unit": "seconds",
   "service": "pagamento",
   "orderId": "PED-10293",
-  "timestamp": "2026-09-02T20:50:31Z",
   "metadata": {
     "paymentMethod": "PIX"
   }
@@ -561,7 +554,6 @@ A estrutura normalizada é:
   "unit": "seconds",
   "service": "pagamento",
   "orderId": "PED-10293",
-  "timestamp": "2026-09-02T20:50:31Z",
   "metadata": "{\\"paymentMethod\\":\\"PIX\\"}"
 }
 ```
@@ -873,7 +865,6 @@ Atualizar service_status
 2. Requisições com corpo JSON devem utilizar `Content-Type: application/json`.
 3. `action` deve permanecer flexível e não deve ser tratado como ENUM fechado.
 4. `metadata` deve permanecer como objeto livre.
-5. `timestamp` deve utilizar formato datetime, preferencialmente ISO 8601.
 6. `orderId` deve ser utilizado quando o evento estiver relacionado a um pedido.
 7. `level` deve representar a severidade do evento.
 8. `status` deve representar o estado ou resultado da operação.
@@ -960,7 +951,6 @@ message
 **Opcionais**
 
 ```text
-timestamp
 x-pedido-id
 metadata
 ```
@@ -1019,7 +1009,7 @@ service
 ```text
 unit
 orderId
-timestamp
+
 metadata
 ```
 
