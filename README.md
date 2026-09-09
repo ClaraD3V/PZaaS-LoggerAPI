@@ -873,50 +873,6 @@ Atualizar service_status
 
 \---
 
-# 21\. Pontos de atenção antes da publicação
-
-O workflow e o modelo de documentação apresentam algumas diferenças que devem ser corrigidas/alinhadas:
-
-### 21.1 Health check
-
-**Workflow:**
-
-```text
-/log/v1/health
-```
-
-**Modelo:**
-
-```text
-/health
-```
-
-Escolher um único padrão.
-
-### 21.2 `eventId`
-
-O modelo define `eventId` como obrigatório, porém o node `validar payload` do workflow não o valida como obrigatório.
-
-Além disso, o workflow atual não gera automaticamente `eventId`.
-
-### 21.3 GET ainda em mock
-
-O SQL de consulta já está preparado com filtros, `LIMIT`, `OFFSET` e `COUNT(\*) OVER()`, mas o resultado ainda é direcionado para um node de mock.
-
-### 21.4 Retorno do POST
-
-O workflow possui um node de retorno, mas o código HTTP `201 Created` e o corpo de resposta documentados ainda precisam ser configurados explicitamente.
-
-### 21.5 Métricas
-
-O workflow possui `POST /v1/metric` e `GET /v1/metrics`, com registro e consulta de métricas. A consulta utiliza a função `buscar_metrics` no Supabase.
-
-### 21.6 Chaos Monkey
-
-O workflow possui `GET /v1/chaos-status` e `POST /v1/alter-chaos` para consultar e alterar o estado de disponibilidade do Logger.
-
-\---
-
 # 22\. Resumo do contrato
 
 ### Logs
